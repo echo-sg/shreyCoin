@@ -1,12 +1,19 @@
 const SHA256 = require("crypto-js/sha256");
 
+class Transaction{
+    constructor(fromAddress, toAddress, amount){
+        this.fromAddress =fromAddress ;
+        this.toAddress =toAddress ;
+        this.amount  =amount  ;
+    }
+}
+
+
 class Block{
-    constructor (index, timestamp, data, previousHash =""){ 
-        // index== where blocks sits on chain, timestamp== hen was block created, data== any additional data to be stored on blockchain
-        this.index = index;
-        this.timestamp = timestamp;
-        this.data =data ;
+    constructor ( timestamp, transactions, previousHash =""){ 
         this.previousHash =previousHash ;
+        this.timestamp = timestamp;
+        this.transactions =transactions ;
         this.hash = this.calculateHash();
         this.nonce = 0;
     }
@@ -28,21 +35,48 @@ class Block{
 class Blockchain{
     constructor(){
         this.chain = [this.createGenisisBlock()];
-        this.difficulty = 5;
+        this.difficulty = 2;
+        this.pendingTransactions = [];
+        this.miningReward = 100;
     }
 
     createGenisisBlock(){
-        return new Block(0,"01/01/2017","Genisis block",0)
+        return new Block("01/01/2017","Genisis block",0)
     }
 
     getLatestBlock(){
         return this.chain[this.chain.length - 1];
     }
 
-    addBlock(newBlock){
-        newBlock.previousHash= this.getLatestBlock().hash;
-        newBlock.mineBlock(this.difficulty);
-        this.chain.push(newBlock);
+    minePendingTransactions(miningRewardAddress){// if i mine this block send money to this address
+        let block = new Block(Date.now(), this.pendingTransactions); // creating new block and adding all pending transactions
+        block.mineBlock(this.difficulty);
+
+        console.log("block succesfully mined !");
+        this.chain.push(block);
+
+        this.pendingTransactions = [
+            new Transaction(null,miningRewardAddress,this.miningReward)// giving reward and resetting array
+        ];// this is in pending area and will be sent only during the next block of transactions
+    }
+
+    createTransaction(transaction){
+        this.pendingTransactions.push(transaction);
+    }
+
+    getBalanceOfAddress(address){ // we need to go through all the transactions involving the address and finally calculating the total
+        let balance = 0;
+        for ( const block of this.chain){
+            for(const trans of block.transactions){ 
+                if(trans.fromAddress === address){
+                    balance -= trans.amount;
+                }// if we are the from address we are sending money (money is being deducted) 
+                if(trans.toAddress === address){
+                    balance += trans.amount;
+                }
+            }
+        }
+        return balance;
     }
 
     isChainValid(){ //to check the integrity of the blockchain
@@ -65,8 +99,13 @@ class Blockchain{
 }
 
 let shreyCoin = new Blockchain();
-console.log("mining block 1");
-shreyCoin.addBlock(new Block(1,"10/1/2017",{amount:4}));
-console.log("mining block 2");
-shreyCoin.addBlock(new Block(3,"15/2/2017",{amount:400}));
 
+shreyCoin.createTransaction(new Transaction("address1","address2",100));
+shreyCoin.createTransaction(new Transaction("address2","address1",10));
+
+console.log("\n starting miner");
+shreyCoin.minePendingTransactions("aaryaaddress");
+console.log("\n balance of aarya is ", shreyCoin.getBalanceOfAddress("aaryaaddress"));
+console.log("\n starting miner agaain");
+shreyCoin.minePendingTransactions("aaryaaddress");
+console.log("\n balance of aarya is finally now ", shreyCoin.getBalanceOfAddress("aaryaaddress"));
